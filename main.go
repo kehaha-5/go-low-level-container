@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log/slog"
 	"os"
 
 	"github.com/urfave/cli"
@@ -21,9 +20,4 @@ func main() {
 
 	// setLogConf()
 
-}
-
-func setLogConf() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
 }
