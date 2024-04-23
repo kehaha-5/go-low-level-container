@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"simple-docker/cgroups/limit"
 	"simple-docker/container"
 
 	"github.com/urfave/cli"
@@ -15,6 +16,22 @@ var RunCmd = cli.Command{
 			Name:  "it",
 			Usage: "Keep STDIN open even if not attached and Allocate a pseudo-TTY",
 		},
+		cli.IntFlag{
+			Name:  "c",
+			Usage: "CPU shares (relative weight)",
+		},
+		cli.StringFlag{
+			Name:  "m",
+			Usage: "Memory limit ",
+		},
+		cli.IntFlag{
+			Name:  "cs-c",
+			Usage: "CPUs in which to allow execution",
+		},
+		cli.StringFlag{
+			Name:  "v",
+			Usage: "Bind mount a volume",
+		},
 	},
 	Action: func(c *cli.Context) {
 		if len(c.Args()) == 0 {
@@ -22,10 +39,19 @@ var RunCmd = cli.Command{
 			return
 		}
 
-		tty := c.Bool("it")
+		var runArgs = &container.RunCommandArgs{
+			Tty:       c.Bool("it"),
+			VolumeArg: c.String("v"),
+			LimitResConf: &limit.ResourceConfig{
+				Cpu:    c.Int("c"),
+				Cpuset: c.Int("cs-c"),
+				Memory: c.String("m"),
+			},
+			Args: c.Args(),
+		}
 
-		if err := container.RunContainer(tty, c.Args()); err != nil {
-			slog.Error("run container", err)
+		if err := container.RunContainer(runArgs); err != nil {
+			slog.Error("run container", "err", err)
 		}
 	},
 }
