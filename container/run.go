@@ -10,14 +10,20 @@ import (
 )
 
 type RunCommandArgs struct {
-	Tty          bool
-	VolumeArg    string
-	LimitResConf *limit.ResourceConfig
-	Args         []string
+	Tty           bool
+	VolumeArg     string
+	LimitResConf  *limit.ResourceConfig
+	CommandArgs   []string
+	Detach        bool
+	ContainerName string
 }
 
 func RunContainer(args *RunCommandArgs) error {
-	cmd, writePipe, err := initContainerParent(args.Tty, args.VolumeArg)
+	// 生成容器id
+	var containerInfo ContainerInfos
+	containerInfo.RandomContainerId(10)
+
+	cmd, writePipe, err := initContainerParent(args.Tty, args.VolumeArg, containerInfo.Id)
 	if err != nil {
 		return err
 	}
@@ -27,11 +33,17 @@ func RunContainer(args *RunCommandArgs) error {
 		return err
 	}
 
+	// 记录container信息
+	containerName, err := containerInfo.RecordContainerInfo(cmd.Process.Pid, args.ContainerName, args.CommandArgs)
+	if err != nil {
+		return fmt.Errorf("recordContainerInfo %v", err)
+	}
+
 	slog.Info("limit rescoure", "mem", args.LimitResConf.Memory, "cpu", args.LimitResConf.Cpu, "cpuset", args.LimitResConf.Cpuset)
-	cg := cgroups.NewCgroupManager("test_cgroup")
+	cg := cgroups.NewCgroupManager(containerName)
 
 	if err := cg.Set(args.LimitResConf); err == nil {
-		defer cg.Destroy()
+
 		if err := cg.Apply(cmd.Process.Pid); err != nil {
 			return err
 		}
@@ -39,14 +51,19 @@ func RunContainer(args *RunCommandArgs) error {
 		return err
 	}
 
-	sendMsgToPipe(writePipe, args.Args)
+	slog.Info("save contianer info")
 
-	cmd.Wait()
+	sendMsgToPipe(writePipe, args.CommandArgs)
 
-	if err := delWorkSpace(); err != nil {
-		return fmt.Errorf("delWorkSpace %v", err)
+	if args.Tty {
+		cmd.Wait()
+		if err := delWorkSpace(); err != nil {
+			slog.Error("delWorkSpace", "err", err)
+		}
+		containerInfo.DeleteContainerInfo()
+		defer cg.Destroy()
+		os.Exit(1)
 	}
-	os.Exit(1)
 	return nil
 }
 

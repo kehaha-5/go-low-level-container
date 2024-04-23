@@ -11,9 +11,11 @@ import (
 	"syscall"
 )
 
-const readonlyLayerFilename string = "readOnly"
-const wirteLayerFilename string = "wirteOnly"
-const workLayerFilename string = "work"
+const (
+	readonlyLayerFilename string = "readOnly"
+	wirteLayerFilename    string = "wirteOnly"
+	workLayerFilename     string = "work"
+)
 
 type workSpace struct {
 	readonlyLayer string
@@ -26,7 +28,7 @@ type workSpace struct {
 var workSpaceInfo workSpace
 
 // 初始化容器进程
-func initContainerParent(tty bool, volumeArg string) (*exec.Cmd, *os.File, error) {
+func initContainerParent(tty bool, volumeArg string, containerId string) (*exec.Cmd, *os.File, error) {
 	readPipe, writePipe, err := newPipe()
 	if err != nil {
 		slog.Error("new pipe", err)
@@ -53,7 +55,7 @@ func initContainerParent(tty bool, volumeArg string) (*exec.Cmd, *os.File, error
 	//解析volume
 	workSpaceInfo.volumeRoot = volumeUrlExtract(volumeArg)
 
-	if err := newWorkSpace(pwd, "busybox.tar", "/mnt"); err != nil {
+	if err := newWorkSpace(pwd, "busybox.tar", path.Join("/mnt", containerId)); err != nil {
 		return nil, nil, fmt.Errorf("new work space %v", err)
 	}
 
@@ -87,16 +89,16 @@ func newWorkSpace(root string, baseImg string, mnt string) error {
 	if err := createLayer(workSpaceInfo.workLayer); err != nil {
 		return err
 	}
-	if err := createOverlay(root, mnt); err != nil {
+	if err := createOverlay(); err != nil {
 		return err
 	}
 
 	if len(workSpaceInfo.volumeRoot) != 0 {
 		if len(workSpaceInfo.volumeRoot) < 1 {
-			slog.Info("volume params not correct.")
+			slog.Error("volume params not correct.")
 		} else {
 			if err := mountVolume(workSpaceInfo.volumeRoot); err != nil {
-				slog.Info("mountVolume", "err", err)
+				slog.Error("mountVolume", "err", err)
 			}
 		}
 	}
@@ -142,11 +144,10 @@ func createLayer(root string) error {
 }
 
 // 创建overlay挂载文件 并进行overlay挂载
-func createOverlay(root string, mnt string) error {
-	mntRoot := path.Join(root, mnt)
-	if err := os.Mkdir(mntRoot, 0777); err != nil {
+func createOverlay() error {
+	if err := os.MkdirAll(workSpaceInfo.mountRoot, 0777); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir mnt %s err %v", mntRoot, err)
+			return fmt.Errorf("mkdir mnt %s err %v", workSpaceInfo.mountRoot, err)
 		}
 	}
 
@@ -218,5 +219,8 @@ func delWorkSpace() error {
 }
 
 func volumeUrlExtract(volumeUrl string) []string {
+	if volumeUrl == "" {
+		return nil
+	}
 	return strings.Split(volumeUrl, ":")
 }

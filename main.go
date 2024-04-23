@@ -14,6 +14,7 @@ func main() {
 	app.Commands = []cli.Command{
 		RunCmd,
 		InitCmd,
+		listContainer,
 	}
 
 	app.Run(os.Args)
