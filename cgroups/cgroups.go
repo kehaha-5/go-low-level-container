@@ -1,7 +1,7 @@
 package cgroups
 
 import (
-	"simple-docker/cgroups/limit"
+	"go-low-level-simple-runc/cgroups/limit"
 )
 
 type CgroupManager struct {

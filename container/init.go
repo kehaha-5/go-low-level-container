@@ -25,7 +25,7 @@ func runContainerProgram() error {
 	if err != nil {
 		return err
 	}
-	mountRoot := os.Getenv("mountRoot")
+	mountRoot := os.Getenv(ENVMOUNTROOT)
 	if mountRoot == "" {
 		return fmt.Errorf("mountRoot is empty")
 	}
@@ -40,7 +40,7 @@ func runContainerProgram() error {
 		return err
 	}
 	slog.Info("LookPath", "path", path)
-
+	syscall.Sethostname([]byte(os.Getenv(ENVHOSTNAME)))
 	if err := syscall.Exec(path, command[0:], os.Environ()); err != nil {
 		return fmt.Errorf("syscall exec %v", err)
 	}

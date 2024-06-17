@@ -2,10 +2,10 @@ package container
 
 import (
 	"fmt"
+	"go-low-level-simple-runc/cgroups"
+	"go-low-level-simple-runc/cgroups/limit"
 	"log/slog"
 	"os"
-	"simple-docker/cgroups"
-	"simple-docker/cgroups/limit"
 	"strings"
 )
 
@@ -16,14 +16,13 @@ type RunCommandArgs struct {
 	CommandArgs   []string
 	Detach        bool
 	ContainerName string
+	ImageName     string
 }
 
 func RunContainer(args *RunCommandArgs) error {
-	// 生成容器id
 	var containerInfo ContainerInfos
-	containerInfo.RandomContainerId(10)
-
-	cmd, writePipe, err := initContainerParent(args.Tty, args.VolumeArg, containerInfo.Id)
+	containerInfo.SetContainerName(args.ContainerName)
+	cmd, writePipe, workSpace, err := initContainerParent(args.Tty, args.VolumeArg, containerInfo.Name, args.ImageName)
 	if err != nil {
 		return err
 	}
@@ -34,7 +33,7 @@ func RunContainer(args *RunCommandArgs) error {
 	}
 
 	// 记录container信息
-	containerName, err := containerInfo.RecordContainerInfo(cmd.Process.Pid, args.ContainerName, args.CommandArgs)
+	containerName, err := containerInfo.RecordContainerInfo(cmd.Process.Pid, args.CommandArgs, args.VolumeArg)
 	if err != nil {
 		return fmt.Errorf("recordContainerInfo %v", err)
 	}
@@ -57,13 +56,14 @@ func RunContainer(args *RunCommandArgs) error {
 
 	if args.Tty {
 		cmd.Wait()
-		if err := delWorkSpace(); err != nil {
+		if err := workSpace.delWorkSpace(); err != nil {
 			slog.Error("delWorkSpace", "err", err)
 		}
 		containerInfo.DeleteContainerInfo()
 		defer cg.Destroy()
 		os.Exit(1)
 	}
+	fmt.Fprintln(os.Stdout, containerInfo.Name)
 	return nil
 }
 

@@ -20,34 +20,43 @@ type ContainerInfos struct {
 	Command    string `json:"command"`    //容器init进程执行的命令
 	CreateTime string `json:"createTime"` //容器创建时间
 	Status     string `json:"status"`     //容器状态
+	Volume     string `json:"volume"`
 }
 
-type Status string
-
 const (
-	Running             Status = "running"
-	Stop                Status = "stopped"
-	Exit                Status = "exited"
-	defaultSavefilepath string = "/workspaces/go-simple-docker/runEnv/container/"
-	defautlSavename     string = "config.json"
+	Running                 string = "running"
+	Stop                    string = "stopped"
+	Exit                    string = "exited"
+	defaultInfoSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/info/"
+	defaultInfoSavename     string = "config.json"
+	defaultIdLen            int    = 10
 )
 
 func GetConfigSavePath() string {
-	return defaultSavefilepath
+	return defaultInfoSavefilepath
 }
 
-func (t *ContainerInfos) RecordContainerInfo(pid int, containerName string, command []string) (string, error) {
-	createTime := time.Now().Format(time.RFC3339)
-
+func (t *ContainerInfos) SetContainerName(containerName string) {
+	t.randomContainerId(defaultIdLen)
 	if containerName == "" {
-		containerName = t.Id
+		t.Name = t.Id
+	} else {
+		t.Name = containerName
 	}
+}
+
+func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeArg string) (string, error) {
+	tz, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		slog.Error("timezone to Asia/Shanghai", "err", err)
+	}
+	createTime := time.Now().In(tz).Format(time.RFC3339)
 
 	t.Pid = strconv.Itoa(pid)
-	t.Name = containerName
 	t.Command = strings.Join(command, " ")
 	t.CreateTime = createTime
-	t.Status = string(Running)
+	t.Status = Running
+	t.Volume = volumeArg
 
 	jsonStr, err := json.Marshal(t)
 	if err != nil {
@@ -59,11 +68,10 @@ func (t *ContainerInfos) RecordContainerInfo(pid int, containerName string, comm
 	}
 
 	return t.Name, nil
-
 }
 
 func (t *ContainerInfos) DeleteContainerInfo() {
-	savefilepath := path.Join(defaultSavefilepath, t.Name)
+	savefilepath := path.Join(defaultInfoSavefilepath, t.Name)
 	if err := os.RemoveAll(savefilepath); err != nil {
 		slog.Error("DeleteContainerInfo", "err", err)
 	}
@@ -82,7 +90,7 @@ func (t *ContainerInfos) WirteInfoToTabwriter(w *tabwriter.Writer) {
 	)
 }
 
-func (t *ContainerInfos) RandomContainerId(n int) {
+func (t *ContainerInfos) randomContainerId(n int) {
 	letterSeed := "0123456789abcde"
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, n)
@@ -93,12 +101,12 @@ func (t *ContainerInfos) RandomContainerId(n int) {
 }
 
 func (t *ContainerInfos) recordToJsonfile(jsonStr string) error {
-	savefilepath := path.Join(defaultSavefilepath, t.Name)
+	savefilepath := path.Join(defaultInfoSavefilepath, t.Name)
 	if err := os.MkdirAll(savefilepath, 0777); err != nil {
 		return err
 	}
 
-	file, err := os.Create(path.Join(savefilepath, defautlSavename))
+	file, err := os.Create(path.Join(savefilepath, defaultInfoSavename))
 
 	if err != nil {
 		return err
@@ -110,8 +118,13 @@ func (t *ContainerInfos) recordToJsonfile(jsonStr string) error {
 	return nil
 }
 
+func (t *ContainerInfos) del() error {
+	savefilepath := path.Join(defaultInfoSavefilepath, t.Name)
+	return os.RemoveAll(savefilepath)
+}
+
 func GetInfoByContainerName(containerName string, data *ContainerInfos) error {
-	savefilepath := path.Join(defaultSavefilepath, containerName, defautlSavename)
+	savefilepath := path.Join(defaultInfoSavefilepath, containerName, defaultInfoSavename)
 	info, err := os.ReadFile(savefilepath)
 	if err != nil {
 		return err
@@ -120,4 +133,25 @@ func GetInfoByContainerName(containerName string, data *ContainerInfos) error {
 		return err
 	}
 	return nil
+}
+
+func getPidByContainerName(name string) (string, error) {
+	data := ContainerInfos{}
+	if err := GetInfoByContainerName(name, &data); err != nil {
+		return "", err
+	}
+	return data.Pid, nil
+}
+
+func modifyContainerStatusToStopByName(name string) error {
+	data := ContainerInfos{}
+	if err := GetInfoByContainerName(name, &data); err != nil {
+		return err
+	}
+	data.Status = Stop
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return data.recordToJsonfile(string(jsonStr))
 }

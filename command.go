@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"go-low-level-simple-runc/cgroups/limit"
+	"go-low-level-simple-runc/container"
+	_ "go-low-level-simple-runc/container/nsenter"
 	"log/slog"
 	"os"
-	"simple-docker/cgroups/limit"
-	"simple-docker/container"
 	"text/tabwriter"
 
 	"github.com/urfave/cli"
@@ -13,7 +14,7 @@ import (
 
 var RunCmd = cli.Command{
 	Name:  "run",
-	Usage: "run [Command]",
+	Usage: "run [Option] image [Command] [Args]",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "it",
@@ -46,7 +47,7 @@ var RunCmd = cli.Command{
 	},
 	Action: func(c *cli.Context) {
 		if len(c.Args()) == 0 {
-			slog.Error("args is too less to run")
+			slog.Error("miss exec cmd")
 			return
 		}
 
@@ -58,9 +59,10 @@ var RunCmd = cli.Command{
 				Cpuset: c.Int("cs-c"),
 				Memory: c.String("m"),
 			},
-			CommandArgs:   c.Args(),
+			CommandArgs:   c.Args()[1:],
 			Detach:        c.Bool("d"),
 			ContainerName: c.String("name"),
+			ImageName:     c.Args()[0],
 		}
 
 		if runArgs.Tty && runArgs.Detach {
@@ -104,5 +106,104 @@ var listContainer = cli.Command{
 			info.WirteInfoToTabwriter(w)
 		}
 		w.Flush()
+	},
+}
+
+var logsContainer = cli.Command{
+	Name:  "log",
+	Usage: "show container log",
+	Action: func(c *cli.Context) {
+		slog.Info("log command")
+		if len(c.Args()) == 0 {
+			slog.Error("too less args to run log command")
+			return
+		}
+		containerName := c.Args()[0]
+		log, err := container.GetLogByContainerName(containerName)
+		if err != nil {
+			slog.Error("GetLogByContainerName", "err", err)
+			return
+		}
+		fmt.Fprintln(os.Stdout, log)
+
+	},
+}
+
+var execContainer = cli.Command{
+	Name:  "exec",
+	Usage: "Execute a command in a running container",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "it",
+			Usage: "Keep STDIN open even if not attached and Allocate a pseudo-TTY",
+		},
+	},
+	Action: func(c *cli.Context) {
+		if len(c.Args()) < 2 {
+			slog.Error("miss exec cmd")
+			return
+		}
+		containerName := c.Args()[0]
+		containerCmd := c.Args()[1:]
+		if err := container.Exce(containerName, containerCmd, c.Bool("it")); err != nil {
+			slog.Error("exec", "err", err)
+		}
+	},
+}
+
+var stopContainer = cli.Command{
+	Name:  "stop",
+	Usage: "stop container name",
+	Action: func(c *cli.Context) {
+		if len(c.Args()) == 0 {
+			slog.Error("less cmd too run")
+			return
+		}
+		containerName := c.Args()
+		for _, itme := range containerName {
+			err := container.StopContainerByName(itme)
+			if err != nil {
+				slog.Error("stop", "err", err)
+			}
+		}
+	},
+}
+
+var rmContainer = cli.Command{
+	Name:  "rm",
+	Usage: "rm container name",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "f",
+			Usage: "force rm",
+		},
+	},
+	Action: func(c *cli.Context) {
+		if len(c.Args()) == 0 {
+			slog.Error("specify container name")
+			return
+		}
+		containerName := c.Args()
+		for _, itme := range containerName {
+			err := container.Rm(itme, c.Bool("f"))
+			if err != nil {
+				slog.Error("rm", "err", err)
+			}
+		}
+
+	},
+}
+
+var commitContainer = cli.Command{
+	Name:  "commit",
+	Usage: "commit container name ",
+	Action: func(c *cli.Context) {
+		if len(c.Args()) == 0 {
+			slog.Error("specify container name ")
+			return
+		}
+		if err := container.CommitContainer(c.Args().Get(0), c.Args().Get(1)); err != nil {
+			slog.Error("commit", "err", err)
+		}
 	},
 }

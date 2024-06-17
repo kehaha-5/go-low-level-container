@@ -15,6 +15,11 @@ func main() {
 		RunCmd,
 		InitCmd,
 		listContainer,
+		logsContainer,
+		execContainer,
+		stopContainer,
+		rmContainer,
+		commitContainer,
 	}
 
 	app.Run(os.Args)
