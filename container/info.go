@@ -14,20 +14,21 @@ import (
 )
 
 type ContainerInfos struct {
-	Id         string `json:"id"`         //容器id
-	Pid        string `json:"pid"`        //容器init进程在宿主机上的pid
-	Name       string `json:"name"`       //容器名称
-	Command    string `json:"command"`    //容器init进程执行的命令
-	CreateTime string `json:"createTime"` //容器创建时间
-	Status     string `json:"status"`     //容器状态
-	Volume     string `json:"volume"`
+	Id          string   `json:"id"`         //容器id
+	Pid         string   `json:"pid"`        //容器init进程在宿主机上的pid
+	Name        string   `json:"name"`       //容器名称
+	Command     string   `json:"command"`    //容器init进程执行的命令
+	CreateTime  string   `json:"createTime"` //容器创建时间
+	Status      string   `json:"status"`     //容器状态
+	Volume      string   `json:"volume"`
+	PortMapping []string `json:"portMapping"`
 }
 
 const (
 	Running                 string = "running"
 	Stop                    string = "stopped"
 	Exit                    string = "exited"
-	defaultInfoSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/info/"
+	defaultInfoSavefilepath string = "/root/runc/runEnv/info/"
 	defaultInfoSavename     string = "config.json"
 	defaultIdLen            int    = 10
 )

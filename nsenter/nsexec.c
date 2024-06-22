@@ -1,4 +1,4 @@
-#define _GNU_SOURCE  // 启用 GNU 扩展
+#define _GNU_SOURCE // 启用 GNU 扩展
 #include "nsexec.h"
 #include "stdio.h"
 #include "stdarg.h"

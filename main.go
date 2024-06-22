@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/urfave/cli"
@@ -20,9 +21,12 @@ func main() {
 		stopContainer,
 		rmContainer,
 		commitContainer,
+		networkCmd,
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil{
+		slog.Error(err.Error())
+	}
 
 	// setLogConf()
 

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	defaultLogSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/container/"
+	defaultLogSavefilepath string = "/root/runc/runEnv/container/"
 	defautlLogSavename     string = "container.log"
 )
 

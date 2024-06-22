@@ -19,7 +19,7 @@ const (
 	defaultWorkLayer     string = "work"
 	defaultImagesPath    string = "images"
 	defaultMntRoot       string = "mnt"
-	root                 string = "/workspaces/go-low-level-simple-runc/runEnv"
+	root                 string = "/root/runc/runEnv"
 )
 
 type workSpace struct {
@@ -99,7 +99,7 @@ func (workSpaceInfo *workSpace) createReadOnlyLayer(root string, baseImgName str
 func (workSpaceInfo *workSpace) createOverlay() error {
 	if err := os.MkdirAll(workSpaceInfo.mountRoot, 0777); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir mnt %s err %v", workSpaceInfo.mountRoot, err)
+			return errors.Wrapf(err, "mkdir mnt %s", workSpaceInfo.mountRoot)
 		}
 	}
 
@@ -110,7 +110,7 @@ func (workSpaceInfo *workSpace) createOverlay() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("mount overlay %v", err)
+		return errors.Wrap(err, "mount overlay")
 	}
 	return nil
 }

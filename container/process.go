@@ -1,15 +1,16 @@
 package container
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/pkg/errors"
 )
 
 // 初始化容器进程
-func initContainerParent(tty bool, volumeArg string, containerName string, imageName string) (*exec.Cmd, *os.File, workSpace, error) {
+func initContainerParent(tty bool, volumeArg string, containerName string, imageName string, envList []string) (*exec.Cmd, *os.File, workSpace, error) {
 	readPipe, writePipe, err := newPipe()
 	if err != nil {
 		slog.Error("new pipe", err)
@@ -28,19 +29,20 @@ func initContainerParent(tty bool, volumeArg string, containerName string, image
 	} else {
 		lopfile, err := createlogfilePointer(containerName)
 		if err != nil {
-			return nil, nil, workSpace{}, fmt.Errorf("get log file %v", err)
+			return nil, nil, workSpace{}, errors.WithStack(err)
 		}
 		cmd.Stdout = lopfile
 	}
 
 	workSpaceInfo, err := NewWorkSpace(imageName, containerName, volumeArg)
 	if err != nil {
-		return nil, nil, workSpace{}, fmt.Errorf("new work space %v", err)
+		return nil, nil, workSpace{}, errors.WithStack(err)
 	}
 
 	cmd.ExtraFiles = []*os.File{readPipe}
 	cmd.Env = append(cmd.Environ(), ENVMOUNTROOT+"="+workSpaceInfo.mountRoot)
 	cmd.Env = append(cmd.Env, ENVHOSTNAME+"="+containerName)
+	cmd.Env = append(cmd.Env, envList...)
 
 	return cmd, writePipe, workSpaceInfo, nil
 }
