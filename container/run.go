@@ -23,6 +23,7 @@ type RunCommandArgs struct {
 	ImageName     string
 	EnvList       []string
 	Net           string
+	PortMapping   string
 }
 
 func RunContainer(args *RunCommandArgs) error {
@@ -39,7 +40,7 @@ func RunContainer(args *RunCommandArgs) error {
 	}
 
 	// 记录container信息
-	containerName, err := containerInfo.RecordContainerInfo(cmd.Process.Pid, args.CommandArgs, args.VolumeArg)
+	containerName, err := containerInfo.RecordContainerInfo(cmd.Process.Pid, args.CommandArgs, args.VolumeArg, args.PortMapping)
 	if err != nil {
 		return fmt.Errorf("recordContainerInfo %+v", err)
 	}

@@ -55,6 +55,10 @@ var RunCmd = cli.Command{
 			Name:  "net",
 			Usage: "set container network name",
 		},
+		cli.StringFlag{
+			Name:  "p",
+			Usage: "set container prot mapping",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		if len(c.Args()) < 2 {
@@ -75,6 +79,7 @@ var RunCmd = cli.Command{
 			EnvList:       c.StringSlice("e"),
 			ImageName:     c.Args()[0],
 			Net:           c.String("net"),
+			PortMapping:   c.String("p"),
 		}
 
 		if runArgs.Tty && runArgs.Detach {

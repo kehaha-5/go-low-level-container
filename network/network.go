@@ -31,8 +31,6 @@ ip link set bridge0 up
 */
 const (
 	defalutNetworkPath string = "/root/runc/runEnv/network/"
-	// -p protocol -m match --dport 选项只对 TCP 协议有效 -j DNAT 改变数据包的目的地址 --to-destination 目标地址
-	iptCommand string = "-p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s"
 )
 
 var (
@@ -304,18 +302,22 @@ func enterContainerNetns(enLink *netlink.Link, containerPid string) func() {
 
 func configMapping(ep *Endpoint) error {
 	ipt, err := iptables.New()
+	// 通过iptables设置宿主机和容器网络的ip端口映射
+	if err != nil {
+		return errors.Wrap(err, "new ipt error")
+	}
 	for _, item := range ep.PortMapping {
 		portMap := strings.Split(item, ":")
 		if len(portMap) != 2 {
 			slog.Error("configMapping", "port mapping error format %v !", item)
 			continue
 		}
-		// 通过iptables设置宿主机和容器网络的ip端口映射
-		if err != nil {
-			slog.Error("new ipt error %v", err)
-			continue
-		}
-		if err := ipt.Append("nat", "PREROUTING", strings.Split(fmt.Sprintf(iptCommand, portMap[0], ep.IPAddress.String(), portMap[1]), " ")...); err != nil {
+
+		if err := ipt.Append("nat", "PREROUTING", "-p", "tcp",
+			"-m", "tcp",
+			"--dport", portMap[0],
+			"-j", "DNAT",
+			"--to-destination", fmt.Sprintf("%s:%s", ep.IPAddress.String(), portMap[1])); err != nil {
 			slog.Error("fail to set ipt command %v", err)
 			continue
 		}

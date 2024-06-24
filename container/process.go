@@ -16,6 +16,7 @@ func initContainerParent(tty bool, volumeArg string, containerName string, image
 		slog.Error("new pipe", err)
 		return nil, nil, workSpace{}, err
 	}
+	
 	cmd := exec.Command("/proc/self/exe", "init")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS |

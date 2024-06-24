@@ -46,7 +46,7 @@ func (t *ContainerInfos) SetContainerName(containerName string) {
 	}
 }
 
-func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeArg string) (string, error) {
+func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeArg string, protMappingStr string) (string, error) {
 	tz, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		slog.Error("timezone to Asia/Shanghai", "err", err)
@@ -58,6 +58,11 @@ func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeAr
 	t.CreateTime = createTime
 	t.Status = Running
 	t.Volume = volumeArg
+
+	protMapping := strings.Split(protMappingStr, " ")
+	if protMappingStr != "" && len(protMapping) != 0 {
+		t.PortMapping = protMapping
+	}
 
 	jsonStr, err := json.Marshal(t)
 	if err != nil {
