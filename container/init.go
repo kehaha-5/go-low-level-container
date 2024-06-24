@@ -16,11 +16,6 @@ import (
 // 执行容器内应用进程
 // 挂载/proc
 func runContainerProgram() error {
-	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-	if err := syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), ""); err != nil {
-		return err
-	}
-
 	pipe := os.NewFile(uintptr(3), "pipe")
 
 	args, err := io.ReadAll(pipe)
@@ -56,19 +51,6 @@ Init 挂载点
 func setUpMount(mountRoot string) error {
 
 	slog.Info("setUpMount", "Current location ", mountRoot)
-	/*
-			https://github.com/taikulawo/wwcdocker/issues/3
-			https://man7.org/linux/man-pages/man2/pivot_root.2.html#:~:text=The%20propagation%20type,another%20mount%20namespace.
-			The propagation type of the parent mount of new_root and the
-		    parent mount of the current root directory must not be
-		    MS_SHARED; similarly, if put_old is an existing mount point,
-		    its propagation type must not be MS_SHARED.  These
-		    restrictions ensure that pivot_root() never propagates any
-		    changes to another mount namespace.
-	*/
-	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
-		return errors.Wrap(err, "fail to set / flags MS_PRIVATE")
-	}
 
 	if err := pivotRoot(mountRoot); err != nil {
 		return errors.WithStack(err)
@@ -85,9 +67,22 @@ func setUpMount(mountRoot string) error {
 }
 
 func pivotRoot(root string) error {
+	/*
+			https://github.com/taikulawo/wwcdocker/issues/3
+			https://man7.org/linux/man-pages/man2/pivot_root.2.html#:~:text=The%20propagation%20type,another%20mount%20namespace.
+			The propagation type of the parent mount of new_root and the
+		    parent mount of the current root directory must not be
+		    MS_SHARED; similarly, if put_old is an existing mount point,
+		    its propagation type must not be MS_SHARED.  These
+		    restrictions ensure that pivot_root() never propagates any
+		    changes to another mount namespace.
+	*/
+	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+		return errors.Wrap(err, "fail to set root flags MS_PRIVATE")
+	}
 	// 重新mount一下当前root 以区分出不同的 mount namespace  旧root的mount namespace 应该是父进程的
 	// mount bind 将前一个目录挂载到后一个目录上，所有对后一个目录的访问其实都是对前一个目录的访问
-	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC|syscall.MS_PRIVATE, ""); err != nil {
+	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
 		return errors.Wrap(err, "mount rootfs to itself")
 	}
 

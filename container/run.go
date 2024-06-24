@@ -2,11 +2,13 @@ package container
 
 import (
 	"fmt"
-	"go-low-level-simple-runc/cgroups"
-	"go-low-level-simple-runc/cgroups/limit"
 	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/kehaha-5/go-low-level-simple-docker/cgroups"
+	"github.com/kehaha-5/go-low-level-simple-docker/cgroups/limit"
+	"github.com/kehaha-5/go-low-level-simple-docker/network"
 
 	"github.com/pkg/errors"
 )
@@ -44,7 +46,6 @@ func RunContainer(args *RunCommandArgs) error {
 
 	slog.Info("limit rescoure", "mem", args.LimitResConf.Memory, "cpu", args.LimitResConf.Cpu, "cpuset", args.LimitResConf.Cpuset)
 	cg := cgroups.NewCgroupManager(containerName)
-
 	if err := cg.Set(args.LimitResConf); err == nil {
 		if err := cg.Apply(cmd.Process.Pid); err != nil {
 			slog.Error("set cg", "err", err)
@@ -57,23 +58,23 @@ func RunContainer(args *RunCommandArgs) error {
 
 	sendMsgToPipe(writePipe, args.CommandArgs)
 
-	// if args.Net != "" {
-	// 	if err := network.Init(); err != nil {
-	// 		return errors.WithStack(err)
-	// 	}
-	// 	if err := network.Connect(args.Net, containerInfo.Id, containerInfo.Pid, containerInfo.PortMapping); err != nil {
-	// 		return errors.Wrap(err, "fail to connect net")
-	// 	}
-	// }
+	if args.Net != "" {
+		if err := network.Init(); err != nil {
+			return errors.WithStack(err)
+		}
+		if err := network.Connect(args.Net, containerInfo.Id, containerInfo.Pid, containerInfo.PortMapping); err != nil {
+			return errors.Wrap(err, "fail to connect net")
+		}
+	}
 
 	if args.Tty {
 		cmd.Wait()
 		if err := workSpace.delWorkSpace(); err != nil {
-			slog.Error("delWorkSpace", "err", err)
+			slog.Error(fmt.Errorf("delWorkSpace err %+v", err).Error())
 		}
 		containerInfo.DeleteContainerInfo()
 		defer cg.Destroy()
-		os.Exit(1)
+		return nil
 	}
 	fmt.Fprintln(os.Stdout, containerInfo.Name)
 	return nil

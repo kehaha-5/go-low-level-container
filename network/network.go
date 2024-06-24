@@ -3,7 +3,6 @@ package network
 import (
 	"encoding/json"
 	"fmt"
-	"go-low-level-simple-runc/common"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/kehaha-5/go-low-level-simple-docker/common"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
@@ -202,7 +203,7 @@ func Connect(networkName string, containerId string, containerPid string, portMa
 	}
 
 	// 配置容器网络
-	if err := configContainerNetwork(ep, containerPid, ip); err != nil {
+	if err := configContainerNetwork(ep, containerPid, network.IpRange, &ip); err != nil {
 		defer ipAllocator.Release(network.IpRange, &ip)
 		return errors.WithStack(err)
 	}
@@ -215,7 +216,7 @@ func Connect(networkName string, containerId string, containerPid string, portMa
 	return nil
 }
 
-func configContainerNetwork(ep *Endpoint, containerPid string, containerIp net.IP) error {
+func configContainerNetwork(ep *Endpoint, containerPid string, gwIpNet *net.IPNet, containerIp *net.IP) error {
 
 	// 获取Connect配置的veth
 	vethL, err := netlink.LinkByName(ep.Device.PeerName)
@@ -226,16 +227,15 @@ func configContainerNetwork(ep *Endpoint, containerPid string, containerIp net.I
 	// 进入容器netse 下面的代码都是在容器的net namespace的环境下执行的
 	defer enterContainerNetns(&vethL, containerPid)()
 
-	// 容器里面设置veth的ip地址
-	containerIpRange := ep.Network
-	// 容器中使用从ipmap中获取的ip
-	containerIpRange.IpRange.IP = containerIp
-	netAddr, err := netlink.ParseAddr(containerIpRange.IpRange.String())
+	containerIpNet := &net.IPNet{IP: gwIpNet.IP, Mask: gwIpNet.Mask}
+	containerIpNet.IP = *containerIp
+	ipnet, err := netlink.ParseIPNet(containerIpNet.String())
 	if err != nil {
-		return errors.Wrap(err, "fialed to get ParseAddr")
+		return errors.Wrap(err, "fialed to get ParseIPNet")
 	}
+	addr := &netlink.Addr{IPNet: ipnet, Label: "", Flags: 0, Scope: 0, Peer: nil, Broadcast: net.IPv4(0, 0, 0, 0), PreferedLft: 0, ValidLft: 0}
 	// 把ip添加到vethlink中
-	if err := netlink.AddrAdd(vethL, netAddr); err != nil {
+	if err := netlink.AddrAdd(vethL, addr); err != nil {
 		return errors.Wrap(err, "fail to add ip to container veth")
 	}
 	// 启动veth
@@ -256,7 +256,7 @@ func configContainerNetwork(ep *Endpoint, containerPid string, containerIp net.I
 
 	defaultRoute := &netlink.Route{
 		LinkIndex: vethL.Attrs().Index,
-		Gw:        ep.Network.IpRange.IP,
+		Gw:        gwIpNet.IP, //网关要设置成宿主机网卡的ip
 		Dst:       cidr,
 	}
 

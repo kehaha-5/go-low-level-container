@@ -2,12 +2,13 @@ package container
 
 import (
 	"fmt"
-	"go-low-level-simple-runc/common"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+
+	"github.com/kehaha-5/go-low-level-simple-docker/common"
 
 	"github.com/pkg/errors"
 )
@@ -155,10 +156,10 @@ func (workSpaceInfo *workSpace) delWorkSpace() error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("mountRoot umount %v ", err)
+		return errors.Wrap(err, "fail to umount")
 	}
 
-	return os.RemoveAll(path.Join(root, defaultRoot, workSpaceInfo.containerName))
+	return errors.Wrap(os.RemoveAll(path.Join(root, defaultRoot, workSpaceInfo.containerName)), "fail to remove")
 
 }
 

@@ -2,11 +2,13 @@ package network
 
 import (
 	"fmt"
-	"go-low-level-simple-runc/common"
+	"log/slog"
 	"net"
-	"os/exec"
 	"strings"
 
+	"github.com/kehaha-5/go-low-level-simple-docker/common"
+
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -59,14 +61,19 @@ func (t *DridgeNetworkDriver) Create(subnet string, bridgeName string) (*Network
 	if err := netlink.LinkSetUp(bridge); err != nil {
 		return nil, errors.Wrap(err, "setting bridge up")
 	}
-
-	iptablesCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %s ! -o %s -j MASQUERADE", ipRange.String(), bridgeName)
-	cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
-
-	if _, err := cmd.Output(); err != nil {
-		return nil, errors.Wrap(err, "iptables")
+	ipt, err := iptables.New()
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to new ipt")
 	}
-
+	_, ipRangeForIpt, _ := net.ParseCIDR(subnet) //要生成类似 172.47.0.0/24 或 192.168.1.0/24 不能添加ip 如 192.168.1.1/24
+	if err := ipt.Append("nat", "POSTROUTING", "-s", ipRangeForIpt.String(), "-j", "MASQUERADE"); err != nil {
+		return nil, errors.Wrap(err, "fail to set ipt command")
+	}
+	rule, err := ipt.List("nat", "PREROUTING")
+	if err != nil {
+		slog.Debug("fail to get rule", err)
+	}
+	slog.Debug("configMapping", "ipt rule ", rule)
 	return n, nil
 }
 

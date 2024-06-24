@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"go-low-level-simple-runc/cgroups/limit"
-	"go-low-level-simple-runc/container"
-	"go-low-level-simple-runc/network"
-	_ "go-low-level-simple-runc/nsenter"
+
+	"github.com/kehaha-5/go-low-level-simple-docker/cgroups/limit"
+	"github.com/kehaha-5/go-low-level-simple-docker/container"
+	"github.com/kehaha-5/go-low-level-simple-docker/network"
+	_ "github.com/kehaha-5/go-low-level-simple-docker/nsenter"
 
 	"log/slog"
 	"os"
@@ -234,12 +235,14 @@ var networkCmd = cli.Command{
 			Usage: "create a container network",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "d",
-					Usage: "network driver",
+					Name:     "d",
+					Usage:    "network driver",
+					Required: true,
 				},
 				cli.StringFlag{
-					Name:  "subnet",
-					Usage: "subnet cidr",
+					Name:     "subnet",
+					Usage:    "subnet cidr",
+					Required: true,
 				},
 			},
 			Action: func(context *cli.Context) error {

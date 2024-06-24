@@ -24,7 +24,11 @@ func main() {
 		networkCmd,
 	}
 
-	if err := app.Run(os.Args); err != nil{
+	app.Before = func(context *cli.Context) error {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+		return nil
+	}
+	if err := app.Run(os.Args); err != nil {
 		slog.Error(err.Error())
 	}
 
