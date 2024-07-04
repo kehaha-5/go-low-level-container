@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/kehaha-5/go-low-level-simple-docker/common"
+	"github.com/kehaha-5/go-low-level-container/common"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
@@ -89,7 +89,7 @@ func (t *DridgeNetworkDriver) Connect(n *Network, ep *Endpoint) error {
 	// 获取link对象
 	link, err := netlink.LinkByName(n.Name)
 	if err != nil {
-		return errors.WithStack(err)
+		return errors.Wrapf(err, "fail to get link %s", n.Name)
 	}
 	// 创建veth
 	vethL := netlink.Veth{

@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/kehaha-5/go-low-level-simple-docker/cgroups/limit"
-	"github.com/kehaha-5/go-low-level-simple-docker/container"
-	"github.com/kehaha-5/go-low-level-simple-docker/network"
-	_ "github.com/kehaha-5/go-low-level-simple-docker/nsenter"
+	"github.com/kehaha-5/go-low-level-container/cgroups/limit"
+	"github.com/kehaha-5/go-low-level-container/container"
+	"github.com/kehaha-5/go-low-level-container/network"
+	_ "github.com/kehaha-5/go-low-level-container/nsenter"
 
 	"log/slog"
 	"os"
@@ -39,7 +39,7 @@ var RunCmd = cli.Command{
 			Name:  "m",
 			Usage: "Memory limit ",
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:  "v",
 			Usage: "Bind mount a volume",
 		},
@@ -67,7 +67,7 @@ var RunCmd = cli.Command{
 
 		var runArgs = &container.RunCommandArgs{
 			Tty:       c.Bool("it"),
-			VolumeArg: c.String("v"),
+			VolumeArg: c.StringSlice("v"),
 			LimitResConf: &limit.ResourceConfig{
 				Cpu:    c.Int("c"),
 				Cpuset: c.Int("cs-c"),
@@ -218,14 +218,20 @@ var rmContainer = cli.Command{
 }
 
 var commitContainer = cli.Command{
-	Name:  "commit",
-	Usage: "commit container name ",
+	Name:  "export",
+	Usage: "export container name ",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "o",
+			Usage: "ouput path",
+		},
+	},
 	Action: func(c *cli.Context) error {
 		if len(c.Args()) == 0 {
 			return fmt.Errorf("specify container name")
 		}
-		if err := container.CommitContainer(c.Args().Get(0), c.Args().Get(1)); err != nil {
-			return fmt.Errorf("commit %v", err)
+		if err := container.ExportCommitContainer(c.Args().Get(0), c.String("o")); err != nil {
+			return fmt.Errorf("export %v", err)
 		}
 		return nil
 	},
@@ -294,5 +300,41 @@ var networkCmd = cli.Command{
 				return nil
 			},
 		},
+	},
+}
+
+var startCmd = cli.Command{
+	Name:  "start",
+	Usage: "restart container name ",
+	Action: func(c *cli.Context) error {
+		if len(c.Args()) == 0 {
+			return fmt.Errorf("specify container name")
+		}
+		containerName := c.Args()
+		for _, itme := range containerName {
+			err := container.StartContainerByName(itme)
+			if err != nil {
+				return fmt.Errorf("restart err %v", err)
+			}
+		}
+		return nil
+	},
+}
+
+var restartCmd = cli.Command{
+	Name:  "restart",
+	Usage: "restart container name ",
+	Action: func(c *cli.Context) error {
+		if len(c.Args()) == 0 {
+			return fmt.Errorf("specify container name")
+		}
+		containerName := c.Args()
+		for _, itme := range containerName {
+			err := container.RestartContainer(itme)
+			if err != nil {
+				return fmt.Errorf("restart err %v", err)
+			}
+		}
+		return nil
 	},
 }

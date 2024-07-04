@@ -22,6 +22,8 @@ func main() {
 		rmContainer,
 		commitContainer,
 		networkCmd,
+		startCmd,
+		restartCmd,
 	}
 
 	app.Before = func(context *cli.Context) error {

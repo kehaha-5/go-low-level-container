@@ -1,43 +1,61 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 )
+
+type initArgs struct {
+	Args      []string
+	MountRoot string
+	Hostname  string
+	NetnsName string
+}
 
 // 执行容器内应用进程
 // 挂载/proc
 func runContainerProgram() error {
 	pipe := os.NewFile(uintptr(3), "pipe")
 
-	args, err := io.ReadAll(pipe)
+	initArgsJsonStr, err := io.ReadAll(pipe)
 	if err != nil {
 		return err
 	}
-	mountRoot := os.Getenv(ENVMOUNTROOT)
-	if mountRoot == "" {
-		return fmt.Errorf("mountRoot is empty")
+	args := &initArgs{}
+	if err := json.Unmarshal(initArgsJsonStr, args); err != nil {
+		return err
 	}
+	// 给当前进程设置新的net namespaec
+	newNsfd, err := netns.GetFromName(args.NetnsName)
+	if err != nil {
+		return errors.Wrapf(err, "fail to get net fd %s", args.NetnsName)
+	}
+	if err := unix.Setns(int(newNsfd), syscall.CLONE_NEWNET); err != nil {
+		return errors.Wrap(err, "fail to set net ")
+	}
+	slog.Debug("set ns", "unique id ", newNsfd.UniqueId())
 
-	if err := setUpMount(mountRoot); err != nil {
+	if err := setUpMount(args.MountRoot); err != nil {
 		return err
 	}
 
-	command := strings.Split(string(args), " ")
+	command := args.Args
 	path, err := exec.LookPath(command[0])
 	if err != nil {
 		return err
 	}
 	slog.Info("LookPath", "path", path)
-	syscall.Sethostname([]byte(os.Getenv(ENVHOSTNAME)))
+	syscall.Sethostname([]byte(os.Getenv(args.Hostname)))
 	if err := syscall.Exec(path, command[0:], os.Environ()); err != nil {
 		return fmt.Errorf("syscall exec %v", err)
 	}

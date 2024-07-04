@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/kehaha-5/go-low-level-simple-docker/common"
+	"github.com/kehaha-5/go-low-level-container/common"
 
 	"github.com/pkg/errors"
 )
@@ -20,7 +20,7 @@ const (
 	defaultWorkLayer     string = "work"
 	defaultImagesPath    string = "images"
 	defaultMntRoot       string = "mnt"
-	root                 string = "/root/runc/runEnv"
+	root                 string = "/workspaces/go-low-level-simple-runc/runEnv"
 )
 
 type workSpace struct {
@@ -29,13 +29,13 @@ type workSpace struct {
 	wirteLayer    string
 	workLayer     string
 	mountRoot     string
-	volumeRoot    []string
+	volumeRoot    [][]string
 }
 
 // 初始化工作区 并挂载overlay
 // root 镜像的根目录 baseImg 镜像名称 mnt overlay挂载点
-func NewWorkSpace(baseImgName string, containerName string, volumeArg string) (workSpace, error) {
-	workSpaceInfo := workSpace{}
+func NewWorkSpace(baseImgName string, containerName string, volumeArg []string) (*workSpace, error) {
+	workSpaceInfo := &workSpace{}
 	workSpaceInfo.readonlyLayer = path.Join(root, defaultReadonlyLayer, baseImgName)
 	workSpaceInfo.wirteLayer = path.Join(root, defaultRoot, containerName, defaultWirteLayer)
 	workSpaceInfo.workLayer = path.Join(root, defaultRoot, containerName, defaultWorkLayer)
@@ -44,16 +44,16 @@ func NewWorkSpace(baseImgName string, containerName string, volumeArg string) (w
 	workSpaceInfo.volumeRoot = volumeUrlExtract(volumeArg)
 
 	if err := workSpaceInfo.createReadOnlyLayer(root, baseImgName); err != nil {
-		return workSpace{}, err
+		return nil, err
 	}
 	if err := createLayer(workSpaceInfo.wirteLayer); err != nil {
-		return workSpace{}, err
+		return nil, err
 	}
 	if err := createLayer(workSpaceInfo.workLayer); err != nil {
-		return workSpace{}, err
+		return nil, err
 	}
 	if err := workSpaceInfo.createOverlay(); err != nil {
-		return workSpace{}, err
+		return nil, err
 	}
 
 	if len(workSpaceInfo.volumeRoot) != 0 {
@@ -119,42 +119,41 @@ func (workSpaceInfo *workSpace) createOverlay() error {
 // 挂载volume层
 func (workSpaceInfo *workSpace) mountVolume() error {
 	// 创建宿主机文件
-	parantUrl := workSpaceInfo.volumeRoot[0]
-	if err := os.MkdirAll(parantUrl, 0777); err != nil {
-		return err
-	}
-
-	// 创建容器挂载点 在挂载点中创建
-	containerUrl := path.Join(workSpaceInfo.mountRoot, workSpaceInfo.volumeRoot[1])
-	if err := os.MkdirAll(path.Join(containerUrl), 0777); err != nil {
-		return err
-	}
-
-	// 挂载宿主机到容器
-	cmd := exec.Command("mount", "--bind", parantUrl, containerUrl)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return err
+	for _, item := range workSpaceInfo.volumeRoot {
+		parantUrl := item[0]
+		if err := os.MkdirAll(parantUrl, 0777); err != nil {
+			return err
+		}
+		// 创建容器挂载点 在挂载点中创建
+		containerUrl := path.Join(workSpaceInfo.mountRoot, item[1])
+		if err := os.MkdirAll(path.Join(containerUrl), 0777); err != nil {
+			return err
+		}
+		// 挂载宿主机到容器
+		cmd := exec.Command("mount", "--bind", parantUrl, containerUrl)
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		slog.Info(fmt.Sprintf("mount volume %s", item[0]))
 	}
 	return nil
 }
 
 func (workSpaceInfo *workSpace) delWorkSpace() error {
 	// 卸载容器volume
-	if len(workSpaceInfo.volumeRoot) == 2 {
-		cmd := exec.Command("umount", path.Join(workSpaceInfo.mountRoot, workSpaceInfo.volumeRoot[1]))
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
-		if err := cmd.Run(); err != nil {
-			slog.Error("volume ", "umount", err)
+	if len(workSpaceInfo.volumeRoot) != 0 {
+		for _, item := range workSpaceInfo.volumeRoot {
+			cmd := exec.Command("umount", path.Join(workSpaceInfo.mountRoot, item[1]))
+			if err := cmd.Run(); err != nil {
+				slog.Error("volume ", "umount", err)
+			}
 		}
 	}
 
 	// 卸载容器挂载
 	cmd := exec.Command("umount", workSpaceInfo.mountRoot)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "fail to umount")
 	}
@@ -168,17 +167,26 @@ func getWorkSpackInfoByContainerInfos(info *ContainerInfos) workSpace {
 	workSpaceInfo.readonlyLayer = path.Join(root, defaultReadonlyLayer)
 	workSpaceInfo.wirteLayer = path.Join(root, defaultRoot, info.Name, defaultWirteLayer)
 	workSpaceInfo.workLayer = path.Join(root, defaultRoot, info.Name, defaultWorkLayer)
-	workSpaceInfo.mountRoot = path.Join(root, defaultRoot, info.Name, defaultMntRoot)
+	workSpaceInfo.mountRoot = getMountRootPathByContainerName(info.Name)
 	workSpaceInfo.volumeRoot = volumeUrlExtract(info.Volume)
 	workSpaceInfo.containerName = info.Name
 	return workSpaceInfo
 }
 
-func volumeUrlExtract(volumeUrl string) []string {
-	if volumeUrl == "" {
+func volumeUrlExtract(volumeUrl []string) [][]string {
+	if len(volumeUrl) == 0 {
 		return nil
 	}
-	return strings.Split(volumeUrl, ":")
+	res := [][]string{}
+	for _, item := range volumeUrl {
+		tmp := strings.Split(item, ":")
+		if len(tmp) != 2 {
+			slog.Error("error volume format")
+			continue
+		}
+		res = append(res, tmp)
+	}
+	return res
 }
 
 // 创建工作层
@@ -189,4 +197,8 @@ func createLayer(root string) error {
 		}
 	}
 	return nil
+}
+
+func getMountRootPathByContainerName(name string) string {
+	return path.Join(root, defaultRoot, name, defaultMntRoot)
 }

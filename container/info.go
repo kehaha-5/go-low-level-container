@@ -11,24 +11,31 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/kehaha-5/go-low-level-container/cgroups"
+	"github.com/kehaha-5/go-low-level-container/network"
 )
 
 type ContainerInfos struct {
-	Id          string   `json:"id"`         //容器id
-	Pid         string   `json:"pid"`        //容器init进程在宿主机上的pid
-	Name        string   `json:"name"`       //容器名称
-	Command     string   `json:"command"`    //容器init进程执行的命令
-	CreateTime  string   `json:"createTime"` //容器创建时间
-	Status      string   `json:"status"`     //容器状态
-	Volume      string   `json:"volume"`
-	PortMapping []string `json:"portMapping"`
+	Id          string                `json:"id"`         //容器id
+	Pid         string                `json:"pid"`        //容器init进程在宿主机上的pid
+	Name        string                `json:"name"`       //容器名称
+	Command     string                `json:"command"`    //容器init进程执行的命令
+	CreateTime  string                `json:"createTime"` //容器创建时间
+	Status      string                `json:"status"`     //容器状态
+	Volume      []string              `json:"volume"`
+	PortMapping []string              `json:"portMapping"`
+	IpInfo      network.Endpoint      `json:"ipInfo"`
+	Env         []string              `json:"env"`
+	Cg          cgroups.CgroupManager `json:"cg"`
+	WorkSpace   workSpace             `json:"wrokSpace"`
 }
 
 const (
 	Running                 string = "running"
 	Stop                    string = "stopped"
 	Exit                    string = "exited"
-	defaultInfoSavefilepath string = "/root/runc/runEnv/info/"
+	defaultInfoSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/info/"
 	defaultInfoSavename     string = "config.json"
 	defaultIdLen            int    = 10
 )
@@ -46,7 +53,20 @@ func (t *ContainerInfos) SetContainerName(containerName string) {
 	}
 }
 
-func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeArg string, protMappingStr string) (string, error) {
+func (t *ContainerInfos) RecordContainerInfo() error {
+	jsonStr, err := json.Marshal(t)
+	if err != nil {
+		return fmt.Errorf("json encode %v", err)
+	}
+
+	if err := t.recordToJsonfile(string(jsonStr)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *ContainerInfos) setBaseInfo(pid int, args *RunCommandArgs) {
 	tz, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		slog.Error("timezone to Asia/Shanghai", "err", err)
@@ -54,26 +74,32 @@ func (t *ContainerInfos) RecordContainerInfo(pid int, command []string, volumeAr
 	createTime := time.Now().In(tz).Format(time.RFC3339)
 
 	t.Pid = strconv.Itoa(pid)
-	t.Command = strings.Join(command, " ")
+	t.Command = strings.Join(args.CommandArgs, " ")
 	t.CreateTime = createTime
 	t.Status = Running
-	t.Volume = volumeArg
+	t.Volume = args.VolumeArg
+	t.Env = args.EnvList
 
-	protMapping := strings.Split(protMappingStr, " ")
-	if protMappingStr != "" && len(protMapping) != 0 {
+	protMapping := strings.Split(args.PortMapping, " ")
+	if args.PortMapping != "" && len(protMapping) != 0 {
 		t.PortMapping = protMapping
 	}
+}
 
-	jsonStr, err := json.Marshal(t)
-	if err != nil {
-		return "", fmt.Errorf("json encode %v", err)
-	}
+func (t *ContainerInfos) SetNetInfo(ep *network.Endpoint) {
+	t.IpInfo = *ep
+}
 
-	if err := t.recordToJsonfile(string(jsonStr)); err != nil {
-		return "", err
-	}
+func (t *ContainerInfos) SetCg(cg *cgroups.CgroupManager) {
+	t.Cg = *cg
+}
 
-	return t.Name, nil
+func (t *ContainerInfos) SetWorkSpace(ws *workSpace) {
+	t.WorkSpace = *ws
+}
+
+func (t *ContainerInfos) UpdatePid(pid int) {
+	t.Pid = strconv.Itoa(pid)
 }
 
 func (t *ContainerInfos) DeleteContainerInfo() {
@@ -129,6 +155,11 @@ func (t *ContainerInfos) del() error {
 	return os.RemoveAll(savefilepath)
 }
 
+func (t *ContainerInfos) modifyContainerStatusByName(status string) error {
+	t.Status = status
+	return t.RecordContainerInfo()
+}
+
 func GetInfoByContainerName(containerName string, data *ContainerInfos) error {
 	savefilepath := path.Join(defaultInfoSavefilepath, containerName, defaultInfoSavename)
 	info, err := os.ReadFile(savefilepath)
@@ -147,17 +178,4 @@ func getPidByContainerName(name string) (string, error) {
 		return "", err
 	}
 	return data.Pid, nil
-}
-
-func modifyContainerStatusToStopByName(name string) error {
-	data := ContainerInfos{}
-	if err := GetInfoByContainerName(name, &data); err != nil {
-		return err
-	}
-	data.Status = Stop
-	jsonStr, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return data.recordToJsonfile(string(jsonStr))
 }

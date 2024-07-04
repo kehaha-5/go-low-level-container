@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	defaultLogSavefilepath string = "/root/runc/runEnv/container/"
+	defaultLogSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/container/"
 	defautlLogSavename     string = "container.log"
 )
 
@@ -36,3 +36,4 @@ func delLogByContainerName(containerName string) error {
 	logfile := path.Join(defaultLogSavefilepath, containerName, defautlLogSavename)
 	return os.Remove(logfile)
 }
+

@@ -1,7 +1,7 @@
 package cgroups
 
 import (
-	"github.com/kehaha-5/go-low-level-simple-docker/cgroups/limit"
+	"github.com/kehaha-5/go-low-level-container/cgroups/limit"
 )
 
 type CgroupManager struct {

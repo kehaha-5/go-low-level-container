@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/kehaha-5/go-low-level-simple-docker/common"
+	"github.com/kehaha-5/go-low-level-container/common"
 
 	"github.com/pkg/errors"
 )
