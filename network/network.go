@@ -32,9 +32,12 @@ ip addr add 192.168.0.1/24(subnet) dev bridge0
 ip link set bridge0 up
 */
 const (
-	defalutNetworkPath string = "/workspaces/go-low-level-simple-runc/runEnv/network/"
 	// -p tcp -m tcp --dport 40624 -j DNAT --to-destination 192.168.0.7:80
 	iptCommand string = "-p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s"
+)
+
+var (
+	defaultNetworkPath string = common.ROOTPATH + "/network/"
 )
 
 var (
@@ -66,7 +69,7 @@ func (t *Network) dump() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	err = os.WriteFile(path.Join(defalutNetworkPath, t.Name), nsJson, 0644)
+	err = os.WriteFile(path.Join(defaultNetworkPath, t.Name), nsJson, 0644)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -74,7 +77,7 @@ func (t *Network) dump() error {
 }
 
 func (t *Network) load() error {
-	nsJson, err := os.ReadFile(path.Join(defalutNetworkPath, t.Name))
+	nsJson, err := os.ReadFile(path.Join(defaultNetworkPath, t.Name))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -86,7 +89,7 @@ func (t *Network) load() error {
 }
 
 func (t *Network) remove() error {
-	return errors.WithStack(os.RemoveAll(path.Join(defalutNetworkPath, t.Name)))
+	return errors.WithStack(os.RemoveAll(path.Join(defaultNetworkPath, t.Name)))
 }
 
 func (t *Network) wirteInfoToTabwriter(w *tabwriter.Writer) {
@@ -101,13 +104,13 @@ func (t *Network) wirteInfoToTabwriter(w *tabwriter.Writer) {
 }
 
 func Init() error {
-	if exist, _ := common.PathExist(defalutNetworkPath); !exist {
-		if err := os.MkdirAll(defalutNetworkPath, 0644); err != nil {
+	if exist, _ := common.PathExist(defaultNetworkPath); !exist {
+		if err := os.MkdirAll(defaultNetworkPath, 0644); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	filepath.Walk(defalutNetworkPath, func(path string, info fs.FileInfo, err error) error {
+	filepath.Walk(defaultNetworkPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
 			return errors.WithStack(err)

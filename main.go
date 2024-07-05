@@ -24,6 +24,8 @@ func main() {
 		networkCmd,
 		startCmd,
 		restartCmd,
+		loadCmd,
+		imagesCmd,
 	}
 
 	app.Before = func(context *cli.Context) error {

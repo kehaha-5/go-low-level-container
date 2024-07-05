@@ -21,7 +21,7 @@ type IPAM struct {
 }
 
 var ipAllocator = &IPAM{
-	SubnetAllocatorPath: path.Join(defalutNetworkPath, ipamDefaultAllocatorPath, ipamSaveIpAllocatorFile),
+	SubnetAllocatorPath: path.Join(defaultNetworkPath, ipamDefaultAllocatorPath, ipamSaveIpAllocatorFile),
 }
 
 func (ipam *IPAM) load() error {

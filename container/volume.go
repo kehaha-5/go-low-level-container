@@ -13,6 +13,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	root string = common.ROOTPATH
+)
+
 const (
 	defaultRoot          string = "container"
 	defaultReadonlyLayer string = "readOnly"
@@ -20,7 +24,6 @@ const (
 	defaultWorkLayer     string = "work"
 	defaultImagesPath    string = "images"
 	defaultMntRoot       string = "mnt"
-	root                 string = "/workspaces/go-low-level-simple-runc/runEnv"
 )
 
 type workSpace struct {

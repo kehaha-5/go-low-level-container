@@ -19,7 +19,7 @@ func StopContainerByName(name string) error {
 	if err != nil {
 		return err
 	}
-	if err := syscall.Kill(intPid, syscall.SIGTERM); err != nil && !strings.Contains(err.Error(), "no such process") {
+	if err := syscall.Kill(intPid, syscall.SIGKILL); err != nil && !strings.Contains(err.Error(), "no such process") {
 		slog.Error("stop", "kill pid", err)
 	}
 

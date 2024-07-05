@@ -3,11 +3,16 @@ package container
 import (
 	"os"
 	"path"
+
+	"github.com/kehaha-5/go-low-level-container/common"
 )
 
 const (
-	defaultLogSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/container/"
-	defautlLogSavename     string = "container.log"
+	defautlLogSavename string = "container.log"
+)
+
+var (
+	defaultLogSavefilepath string = common.ROOTPATH + "/container/"
 )
 
 func createlogfilePointer(containerName string) (*os.File, error) {
@@ -36,4 +41,3 @@ func delLogByContainerName(containerName string) error {
 	logfile := path.Join(defaultLogSavefilepath, containerName, defautlLogSavename)
 	return os.Remove(logfile)
 }
-

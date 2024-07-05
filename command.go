@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kehaha-5/go-low-level-container/cgroups/limit"
+	"github.com/kehaha-5/go-low-level-container/common"
 	"github.com/kehaha-5/go-low-level-container/container"
 	"github.com/kehaha-5/go-low-level-container/network"
 	_ "github.com/kehaha-5/go-low-level-container/nsenter"
@@ -108,7 +109,10 @@ var listContainer = cli.Command{
 	Name:  "ps",
 	Usage: "list all container",
 	Action: func(c *cli.Context) error {
-		slog.Info("ps command")
+		isExist, err := common.PathExist(container.GetConfigSavePath())
+		if err != nil || !isExist {
+			return nil
+		}
 		files, err := os.ReadDir(container.GetConfigSavePath())
 		if err != nil {
 			return fmt.Errorf("read configfile error %v", err)
@@ -159,8 +163,8 @@ var execContainer = cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		//This is for callback
-		if os.Getenv(container.CONTAINERIDENV) != "" {
-			slog.Info("exec", "pid callback pid", os.Getenv(container.CONTAINERIDENV))
+		if os.Getenv(common.CONTAINERIDENV) != "" {
+			slog.Info("exec", "pid callback pid", os.Getenv(common.CONTAINERIDENV))
 			return nil
 		}
 		if len(c.Args()) < 2 {
@@ -336,5 +340,48 @@ var restartCmd = cli.Command{
 			}
 		}
 		return nil
+	},
+}
+
+var loadCmd = cli.Command{
+	Name:  "load",
+	Usage: "load image [imagefilepath] ",
+	Action: func(c *cli.Context) error {
+		if len(c.Args()) == 0 {
+			return fmt.Errorf("specify imagefilepath")
+		}
+		imagefilepath := c.Args().Get(0)
+		return container.LoadImage(imagefilepath)
+	},
+}
+
+var imagesCmd = cli.Command{
+	Name:  "images",
+	Usage: "container images commands",
+	Subcommands: []cli.Command{
+		{
+			Name:  "ls",
+			Usage: "list all container images",
+			Action: func(context *cli.Context) error {
+				w := tabwriter.NewWriter(os.Stdout, 12, 1, 5, ' ', tabwriter.TabIndent)
+				fmt.Fprint(w, "ID\tNAME\tSize\tCREATED\n")
+				if err := container.WirteImagesInfoToTabwriter(w); err != nil {
+					return err
+				}
+				w.Flush()
+				return nil
+			},
+		},
+		{
+			Name:  "rm",
+			Usage: "rm container images [imagename]...",
+			Action: func(context *cli.Context) error {
+				if len(context.Args()) == 0 {
+					return fmt.Errorf("specify image name")
+				}
+				imageNames := context.Args()
+				return container.DelImageByName(imageNames)
+			},
+		},
 	},
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kehaha-5/go-low-level-container/cgroups"
+	"github.com/kehaha-5/go-low-level-container/common"
 	"github.com/kehaha-5/go-low-level-container/network"
 )
 
@@ -32,12 +33,15 @@ type ContainerInfos struct {
 }
 
 const (
-	Running                 string = "running"
-	Stop                    string = "stopped"
-	Exit                    string = "exited"
-	defaultInfoSavefilepath string = "/workspaces/go-low-level-simple-runc/runEnv/info/"
-	defaultInfoSavename     string = "config.json"
-	defaultIdLen            int    = 10
+	Running             string = "running"
+	Stop                string = "stopped"
+	Exit                string = "exited"
+	defaultInfoSavename string = "config.json"
+	defaultIdLen        int    = 10
+)
+
+var (
+	defaultInfoSavefilepath string = common.ROOTPATH + "/runEnv/info/"
 )
 
 func GetConfigSavePath() string {

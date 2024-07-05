@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kehaha-5/go-low-level-container/common"
 	"github.com/pkg/errors"
 )
 
@@ -24,12 +25,12 @@ func Exce(name string, cmdArr []string, tty bool) error {
 		cmd.Stdin = os.Stdin
 	}
 
-	if err = os.Setenv(CONTAINERIDENV, pid); err != nil {
+	if err = os.Setenv(common.CONTAINERIDENV, pid); err != nil {
 		return err
 	}
 
 	cmdStr := strings.Join(cmdArr[0:], " ")
-	if err = os.Setenv(CONTAINERCMDENV, cmdStr); err != nil {
+	if err = os.Setenv(common.CONTAINERCMDENV, cmdStr); err != nil {
 		return err
 	}
 	slog.Info("exec", "pid", pid)
